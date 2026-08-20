@@ -6,9 +6,9 @@
 >
 > `make verify` sẽ fail nếu còn placeholder chưa điền. Đó là cố ý.
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** Đỗ Quang Huy (2A202601896)
+**Cohort:** A20-K3
+**Ngày submit:** 2026-08-20
 
 ---
 
@@ -16,23 +16,24 @@
 
 > Từ `make probe`. Paste output hoặc điền tay.
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 / Apple Metal / Vulkan / CPU only>_
-- **llama.cpp asset đã tải:** _<vd: llama-b10488-bin-macos-arm64.tar.gz>_
-- **Model đã dùng:** _<Gemma 4 E2B / Qwen3.5 0.8B>_ (`LAB_MODEL=`_<gemma4-e2b / qwen35-0.8b>_)
-- **Quantization:** _<primary>_ + _<compare>_ (từ `models/active.json`)
+- **OS:** Windows 11 (build 26200), AMD64
+- **CPU:** 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
+- **Cores:** 4 physical / 8 logical
+- **CPU extensions:** not reported by `make probe` on this llama.cpp build (CPU backend loaded is `ggml-cpu-icelake.dll`, i.e. it auto-selected the Ice Lake code path — implies AVX2/AVX-512 support)
+- **RAM:** 7.7 GB
+- **Accelerator:** NVIDIA GeForce MX330 (2048 MiB VRAM, CUDA, compute capability 6.1) — Vulkan device also present but CUDA was picked
+- **llama.cpp asset đã tải:** `llama-b10488-bin-win-cuda-12.4-x64.zip` + `cudart-llama-bin-win-cuda-12.4-x64.zip` (CUDA runtime DLLs)
+- **Model đã dùng:** Qwen3.5 0.8B (`LAB_MODEL=qwen35-0.8b`)
+- **Quantization:** Q4_K_M (primary) + UD-Q2_K_XL (compare) (từ `models/active.json`)
 
-**Chạy ở đâu:** _<laptop của tôi / Colab / Kaggle>_
-_(Nếu dùng cloud fallback: nói rõ vì sao — RAM < 8 GB, setup fail, v.v. Không mất điểm.)_
+**Chạy ở đâu:** laptop của tôi (local, Windows)
 
-**Setup story** (≤ 80 chữ): điều gì cần thay đổi để lab chạy trên máy bạn? Có bước
-nào fail rồi phải workaround không?
-
-_Answer here._
+**Setup story** (≤ 80 chữ): `make probe` tự chọn Qwen3.5 0.8B vì RAM 7.7GB dưới
+ngưỡng 8GB của Gemma 4 mặc định — không cần can thiệp. Riêng `.\lab.ps1` ban đầu
+crash với lỗi parser (`'<' operator is reserved`): file chứa dấu em-dash UTF-8
+không BOM, Windows PowerShell 5.1 đọc bằng code page hệ thống (cp1252) nên hiểu
+sai một byte thành dấu ngoặc kép, làm gãy chuỗi ở dòng sau. Đã sửa bằng cách
+thay các dấu em-dash bằng dấu gạch ngang ASCII trong `lab.ps1`.
 
 ---
 
@@ -42,14 +43,15 @@ _Answer here._
 
 | Quantization | Size (GB) | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode (tok/s) |
 |---|--:|--:|--:|--:|--:|--:|
-| UD-Q4_K_XL | | | | | | |
-| UD-Q2_K_XL | | | | | | |
+| Q4_K_M (primary) | 0.50 | 2717 | 308 / 329 | 34.1 / 41.5 | 2423 / 2942 / 2942 | 29.3 |
+| UD-Q2_K_XL (compare) | 0.39 | 3117 | 342 / 408 | 49.4 / 62.2 | 3467 / 4143 / 4143 | 20.3 |
 
-**Quan sát** (≤ 60 chữ): 2-bit nhanh hơn bao nhiêu, và **có đáng không**? Bạn đã thử
-hỏi cùng một câu trên cả hai (`make serve` vs `.venv/bin/python labs/02-serve/serve.py --compare`)
-chưa? Chất lượng khác nhau thế nào?
-
-_Answer here._
+**Quan sát** (≤ 60 chữ): Ngược kỳ vọng — 2-bit **chậm hơn** 4-bit 1.44x (20.3 vs
+29.3 tok/s), vì cả hai đều offload GPU (MX330 yếu, 2GB VRAM) nên bị compute-bound,
+không phải bandwidth-bound; dequant của Q2_K tốn compute hơn. (Lần đo đầu, cold
+cache, chênh còn rõ hơn: 1.88x — cùng kết luận, khác trạng thái cache.) Đã hỏi
+cùng câu qua cả hai server: Q4_K_M trả lời gọn (`stop`, 80 token); Q2_K_XL bị lặp và cắt
+giữa chừng (`length`, dính cả tag `</think>` rò rỉ). Không đáng dùng trên máy này.
 
 ---
 
@@ -59,22 +61,23 @@ _Answer here._
 
 | Users | RPS | P50 (ms) | P95 (ms) | P99 (ms) | Eff. concurrency | Failures |
 |--:|--:|--:|--:|--:|--:|--:|
-| 10 | | | | | | |
-| 50 | | | | | | |
+| 10 | 0.61 | 15000 | 21000 | 22000 | 8.6 | 0.0% |
+| 50 | 0.60 | 25000 | 53000 | 53000 | 16.6 | 0.0% |
 
-- **Offered load tăng 5×, throughput thực tăng:** _<X.XX>×_
-- **P95 tăng:** _<X.XX>×_
-- **Effective concurrency ở 50 users:** _<số>_ so với `--parallel` = _<số>_ slots
+- **Offered load tăng 5×, throughput thực tăng:** 0.98×
+- **P95 tăng:** 2.52×
+- **Effective concurrency ở 50 users:** 16.6 so với `--parallel` = 4 slots
 
 **Peak `llamacpp:n_busy_slots_per_decode`** (từ `make metrics` khi `make load-50` đang
-chạy): _<số>_ / _<slots>_ slots
+chạy): 3.82 / 4 slots
 
-**Saturation reading** (≤ 80 chữ): server của bạn bão hoà ở đâu, và **bằng chứng nào**
-thuyết phục bạn? Nếu P95 tăng nhanh hơn RPS thì phần latency thêm đó là queue time hay
-compute time — bạn biết bằng cách nào? Nếu bạn phải nâng goodput@SLO, bạn sẽ đổi knob
-nào **trước**, và vì sao knob đó?
-
-_Answer here._
+**Saturation reading** (≤ 80 chữ): Server đã bão hoà **từ 10 users**, không phải
+đâu đó giữa 10-50 — RPS gần như đứng yên (0.61→0.60) dù offered load gấp 5 lần.
+Bằng chứng mạnh nhất: `n_busy_slots_per_decode` giữ ở 3.7-3.82/4 suốt cửa sổ 60s,
+và `requests_deferred` = 33-46 liên tục — cả 4 slot bận gần như 100% thời gian,
+hàng chờ luôn có. P95 tăng 2.52× trong khi throughput chỉ 0.98× là queue time
+thuần, không phải compute (compute/token không đổi). Knob đổi trước: `--parallel`
+(tăng số slot) — đúng thứ nghẽn cổ chai đo được, chứ không phải ctx-size hay quant.
 
 ---
 
@@ -84,23 +87,24 @@ _Answer here._
 
 | Day | Piece | Real hay stub? |
 |---|---|---|
-| N16 Cloud/IaC | | |
-| N17 Data pipeline | | |
-| N18 Lakehouse | | |
-| N19 Vector + features | | |
+| N16 Cloud/IaC | — | stub (localhost only, không k8s/Compose) |
+| N17 Data pipeline | — | stub (`TOY_DOCS` list trong process, không Airflow) |
+| N18 Lakehouse | — | stub (list Python thuần, không cả SQLite) |
+| N19 Vector + features | — | stub (keyword-overlap fallback, `embed_url` không set nên `embed()` trả `None`) |
 | N20 Serving | `llama-server` | real |
 
 **Latency split** (mean của 3 query, từ output của `pipeline.py`):
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llm: _<ms>_
-- **stage chiếm nhiều nhất:** _<stage>_ (_<%>_ của total)
+- embed: 0.0 ms
+- retrieve: 0.1 ms
+- llm: 8364.8 ms
+- **stage chiếm nhiều nhất:** llm (100% của total)
 
-**Reflection** (≤ 60 chữ): bottleneck ở đâu? Có khớp với kỳ vọng của bạn không? Nếu
-phải giảm latency của pipeline này 2×, bạn sẽ tấn công vào đâu?
-
-_Answer here._
+**Reflection** (≤ 60 chữ): Đúng kỳ vọng, thậm chí cực đoan hơn — vì `embed_url`
+không set nên embed=0 tuyệt đối (không gọi mạng), keyword-overlap trên 6 doc
+toy chỉ tốn 0.1-0.2ms, nên llm gần như là chi phí thật duy nhất. Muốn giảm 2×:
+tấn công decode trước (không phải retrieval) — hạ `max_tokens` (query 3 tốn
+8.6s decode/11.6s total) và dùng `-t 1` (từ §5, decode ở đây cũng GPU-bound).
 
 ---
 
@@ -110,22 +114,37 @@ _Answer here._
 > một before/after thật (`benchmarks/01-tuning-tg128.md`). Đổi quantization,
 > `LAB_N_CTX`, hay `--parallel` rồi đo lại cũng được.
 
-**Change:** _<vd: hạ -t từ 16 xuống 8; vd: đổi sang UD-Q2_K_XL; vd: --parallel 4 → 8>_
+**Change:** hạ thread count từ mặc định theo physical-core (`-t 4`) xuống `-t 1`
 
 ```
-before:  <số + đơn vị>
-after:   <số + đơn vị>
-speedup: <X.Y>×
+before:  10.0 tok/s   (-t 4, physical-core default)
+after:   22.5 tok/s   (-t 1)
+speedup: 2.24×
 ```
 
 **Tại sao nó work** (1–2 đoạn — đây là phần grader đọc kỹ nhất):
 
-_Giải thích như đang nói với bạn ngồi cạnh. Bám vào **cơ chế**, không phải "vibes":
-memory bandwidth? vector width? cache residency? scheduling? queueing? Nếu kết quả
-**khác** với kỳ vọng từ deck — nói rõ, và giải thích vì sao. Grader thưởng điểm cho
-lập luận đúng về một kết quả bất ngờ, hơn là một con số đẹp không được giải thích._
+Kết quả **không** khớp deck: đường cong đáng lẽ leo lên đến physical core count
+(4) rồi mới chững/giảm, nhưng ở đây `-t 1` đã là đỉnh và throughput giảm đơn
+điệu suốt tới `-t 8` (22.5 → 12.3 → 10.0 → 6.6 tok/s), chỉ nhích nhẹ lại ở
+`-t 16` (7.8, nằm trong nhiễu vì `--reps 2`). Lý do: `ngl=99` — toàn bộ layer
+của model 0.8B này được offload lên GPU (MX330). Nghĩa là phép nhân ma trận
+thật sự của decode chạy trên CUDA, không phải trên CPU, nên `-t` ở đây không
+còn sweep "số core làm việc bandwidth-bound" như deck giả định cho trường hợp
+CPU-only — nó sweep kích thước threadpool phía CPU chỉ để làm sampling, quản
+lý KV-cache bookkeeping và dispatch công việc sang hàng đợi GPU giữa các bước
+token.
 
-_Answer here._
+Với chỉ một GPU stream làm việc thật, thêm thread CPU chỉ tạo thêm overhead
+điều phối (đánh thức thread, tranh chấp mutex/condvar quanh decode loop dùng
+chung, và context-switch trên CPU 4 core/8 luồng cũng đang phải nuôi hàng đợi
+GPU) mà không thêm compute hữu ích nào — nên throughput giảm đơn điệu theo số
+thread. Nói ngắn gọn về cơ chế: **khi `ngl=99`, decode bị GPU-bound chứ không
+còn CPU-bandwidth-bound, nên knob thread-count của CPU không còn là đòn bẩy mà
+heuristic "physical core count" của deck giả định.** Thay đổi quan trọng nhất
+trên máy này thực ra đã xảy ra ngầm khi bật GPU offload; với điều đó, việc còn
+lại là giữ threadpool điều phối gọn nhất có thể — `-t 1`, cho 2.24× so với mặc
+định physical-core `-t 4`.
 
 ---
 

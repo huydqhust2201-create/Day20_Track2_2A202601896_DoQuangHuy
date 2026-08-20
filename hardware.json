@@ -1,0 +1,48 @@
+{
+  "runtime_environment": "local",
+  "cpu": {
+    "arch": "AMD64",
+    "cores_logical": 8,
+    "model": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "cores_physical": 4
+  },
+  "ram_gb": 7.7,
+  "gpu": {
+    "backends": {
+      "nvidia_cuda": true,
+      "amd_rocm": false,
+      "apple_metal": false,
+      "vulkan": true,
+      "cpu_only": false
+    },
+    "details": {
+      "nvidia": "NVIDIA GeForce MX330, 2048 MiB",
+      "vulkan": "device present"
+    }
+  },
+  "platform": {
+    "system": "Windows",
+    "release": "11",
+    "machine": "AMD64",
+    "python": "3.12.10"
+  },
+  "recommendation": {
+    "recommended_paths": [
+      "01-measure",
+      "02-serve",
+      "03-integrate",
+      "bonus/sweeps"
+    ],
+    "model_key": "qwen35-0.8b",
+    "model_choice_reason": "7.7 GB RAM is under the 8.0 GB the default model wants",
+    "model_label": "Qwen3.5 0.8B",
+    "model_repo": "unsloth/Qwen3.5-0.8B-GGUF",
+    "primary_model_file": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "compare_model_file": "Qwen3.5-0.8B-UD-Q2_K_XL.gguf",
+    "llama_cpp_backend": "CUDA",
+    "llama_cpp_cmake_flag": "-DGGML_CUDA=ON",
+    "llama_cpp_build": "b10488",
+    "ram_sufficient": true,
+    "fallback": null
+  }
+}
